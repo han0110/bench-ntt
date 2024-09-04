@@ -1,0 +1,16 @@
+[package]
+name = "ntt-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+concrete-ntt = { version = "0.2.0", features = ["nightly"] }
+criterion = "0.5.1"
+itertools = "0.13.0"
+plonky2_field = "0.2.2"
+rand_core = "0.6.4"
+unroll = "0.1.5"
+
+[[bench]]
+name = "ntt"
+harness = false
