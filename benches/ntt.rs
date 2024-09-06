@@ -1,24 +1,43 @@
-use core::any::type_name;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{
+    criterion_group, criterion_main, measurement::Measurement, BenchmarkGroup, Criterion,
+};
 use ntt_bench::{
     concrete::ConcreteNtt,
     plonky2::{Plonky2Goldilocks, Plonky2Ntt},
     Ntt,
 };
 
-fn run<N: Ntt>(c: &mut Criterion, n: usize) {
+fn drop<T>(_: T) {}
+
+fn run_forward<N: Ntt>(c: &mut BenchmarkGroup<impl Measurement>, name: &str, n: usize) {
+    let id = format!("{name}/{n}");
     let ntt = N::new(n);
-    let mut data = ntt.rand();
-    c.bench_function(&format!("{}/{n}", type_name::<N>()), |b| {
-        b.iter(|| ntt.forward(&mut data));
-    });
+    let mut a = ntt.rand();
+    c.bench_function(id, |b| b.iter(|| drop(ntt.forward(&mut a))));
+}
+
+fn run_backward<N: Ntt>(c: &mut BenchmarkGroup<impl Measurement>, name: &str, n: usize) {
+    let id = format!("{name}/{n}");
+    let ntt = N::new(n);
+    let mut a = ntt.rand();
+    c.bench_function(id, |b| b.iter(|| drop(ntt.backward(&mut a))));
 }
 
 fn goldilocks(c: &mut Criterion) {
     const P: u64 = 18446744069414584321;
-    for n in [1024, 2048] {
-        run::<Plonky2Ntt<Plonky2Goldilocks>>(c, n);
-        run::<ConcreteNtt<P>>(c, n);
+    {
+        let g = &mut c.benchmark_group("forward");
+        for n in [1024, 2048] {
+            run_forward::<Plonky2Ntt<Plonky2Goldilocks>>(g, "plonky2", n);
+            run_forward::<ConcreteNtt<P>>(g, "concrete", n);
+        }
+    }
+    {
+        let g = &mut c.benchmark_group("backward");
+        for n in [1024, 2048] {
+            run_backward::<Plonky2Ntt<Plonky2Goldilocks>>(g, "plonky2", n);
+            run_backward::<ConcreteNtt<P>>(g, "concrete", n);
+        }
     }
 }
 

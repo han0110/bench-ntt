@@ -8,5 +8,9 @@ pub trait Ntt {
 
     fn rand(&self) -> Vec<Self::Elem>;
 
-    fn forward(&self, a: &mut [Self::Elem]);
+    fn forward<V: AsMut<[Self::Elem]>>(&self, a: V) -> V;
+
+    fn backward<V: AsMut<[Self::Elem]>>(&self, a: V) -> V;
+
+    fn normalize<V: AsMut<[Self::Elem]>>(&self, a: V) -> V;
 }

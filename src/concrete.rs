@@ -24,7 +24,18 @@ impl<const P: u64> Ntt for ConcreteNtt<P> {
             .collect()
     }
 
-    fn forward(&self, a: &mut [Self::Elem]) {
-        self.plan.fwd(a);
+    fn forward<V: AsMut<[Self::Elem]>>(&self, mut a: V) -> V {
+        self.plan.fwd(a.as_mut());
+        a
+    }
+
+    fn backward<V: AsMut<[Self::Elem]>>(&self, mut a: V) -> V {
+        self.plan.inv(a.as_mut());
+        a
+    }
+
+    fn normalize<V: AsMut<[Self::Elem]>>(&self, mut a: V) -> V {
+        self.plan.normalize(a.as_mut());
+        a
     }
 }
