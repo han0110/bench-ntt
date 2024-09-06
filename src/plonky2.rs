@@ -86,22 +86,27 @@ fn dit<F: Field, P: PackedField<Scalar = F>>(a: &mut P, b: &mut P, t: &F) {
 #[cfg(test)]
 mod test {
     use crate::{
-        concrete::ConcreteNtt,
-        plonky2::{Plonky2Goldilocks, Plonky2Ntt},
+        plonky2::{bit_reverse, Plonky2Goldilocks, Plonky2Ntt},
         Ntt,
     };
+    use plonky2_field::{polynomial::PolynomialCoeffs, types::Field};
 
     #[test]
     fn forward() {
-        const P: u64 = 18446744069414584321;
-        for n in (4..12).map(|log_n| 1 << log_n) {
-            let plonky2 = Plonky2Ntt::<Plonky2Goldilocks>::new(n);
-            let concrete = ConcreteNtt::<P>::new(n);
-            let mut a = plonky2.rand();
-            let mut b = a.iter().map(|data| data.0).collect::<Vec<_>>();
-            plonky2.forward(&mut a);
-            concrete.forward(&mut b);
-            assert_eq!(a.iter().map(|data| data.0).collect::<Vec<_>>(), b);
+        for n in (0..12).map(|log_n| 1 << log_n) {
+            let ntt = Plonky2Ntt::<Plonky2Goldilocks>::new(n);
+            let a = ntt.rand();
+            let b = {
+                let mut b = a.clone();
+                ntt.forward(&mut b);
+                b
+            };
+            assert_eq!(b, coset_ntt(a));
         }
+    }
+
+    fn coset_ntt<F: Field>(a: Vec<F>) -> Vec<F> {
+        let coset = F::primitive_root_of_unity(a.len().ilog2() as usize + 1);
+        bit_reverse(PolynomialCoeffs::new(a).coset_fft(coset).values)
     }
 }
