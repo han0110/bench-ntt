@@ -5,7 +5,7 @@ use unroll::unroll_for_loops;
 
 pub use plonky2_field::goldilocks_field::GoldilocksField as Plonky2Goldilocks;
 
-pub struct Plonky2Ntt<F: Field> {
+pub struct Plonky2Ntt<F: Packable> {
     n: usize,
     log_n: usize,
     log_n_packed: usize,
@@ -14,18 +14,18 @@ pub struct Plonky2Ntt<F: Field> {
     n_inv: F,
 }
 
-impl<F: Field> Ntt for Plonky2Ntt<F> {
+impl<F: Packable> Ntt for Plonky2Ntt<F> {
     type Elem = F;
 
     fn new(n: usize) -> Self {
         assert!(n.is_power_of_two());
-        assert!(<F as Packable>::Packing::WIDTH.is_power_of_two());
+        assert!(F::Packing::WIDTH.is_power_of_two());
         let log_n = n.ilog2() as _;
         let omega = F::primitive_root_of_unity(log_n + 1);
         Self {
             n,
             log_n,
-            log_n_packed: log_n.saturating_sub(<F as Packable>::Packing::WIDTH.ilog2() as _),
+            log_n_packed: log_n.saturating_sub(F::Packing::WIDTH.ilog2() as _),
             twiddles: bit_reverse(omega.powers().take(n).collect()),
             twiddle_invs: bit_reverse(omega.inverse().powers().take(n).collect()),
             n_inv: F::from_canonical_usize(n).inverse(),
@@ -39,7 +39,7 @@ impl<F: Field> Ntt for Plonky2Ntt<F> {
     #[unroll_for_loops]
     fn forward<V: AsMut<[Self::Elem]>>(&self, mut a: V) -> V {
         for layer in 0..self.log_n_packed {
-            let a = <F as Packable>::Packing::pack_slice_mut(a.as_mut());
+            let a = F::Packing::pack_slice_mut(a.as_mut());
             let (m, size) = (1 << layer, 1 << (self.log_n_packed - 1 - layer));
             izip!(a.chunks_exact_mut(2 * size), &self.twiddles[m..]).for_each(|(a, t)| {
                 let (a, b) = a.split_at_mut(size);
@@ -74,7 +74,7 @@ impl<F: Field> Ntt for Plonky2Ntt<F> {
             }
         }
         for layer in (0..self.log_n_packed).rev() {
-            let a = <F as Packable>::Packing::pack_slice_mut(a.as_mut());
+            let a = F::Packing::pack_slice_mut(a.as_mut());
             let (m, size) = (1 << layer, 1 << (self.log_n_packed - 1 - layer));
             izip!(a.chunks_exact_mut(2 * size), &self.twiddle_invs[m..]).for_each(|(a, t)| {
                 let (a, b) = a.split_at_mut(size);
@@ -85,8 +85,8 @@ impl<F: Field> Ntt for Plonky2Ntt<F> {
     }
 
     fn normalize<V: AsMut<[Self::Elem]>>(&self, mut a: V) -> V {
-        if self.n >= <F as Packable>::Packing::WIDTH {
-            let a = <F as Packable>::Packing::pack_slice_mut(a.as_mut());
+        if self.n >= F::Packing::WIDTH {
+            let a = F::Packing::pack_slice_mut(a.as_mut());
             a.iter_mut().for_each(|a| *a *= self.n_inv);
         } else {
             let a = a.as_mut();
